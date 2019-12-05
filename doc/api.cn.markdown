@@ -125,19 +125,20 @@ SIP请求（Request）有 `method` 和 `uri` 属性字段，与之相反的 SIP�
 
 ### sip.send(message[, callback])
 
-以事务方式发送SIP消息。
+如果“message”是一条非“ACK”请求，则创建客户端事务。
+如果是一条“ACK”请求直接传递到传输层。
 
-If `message` is an non-`'ACK'` request then client transaction is created. Non-`'ACK'` requests are passed directy to transport layer.
+如果“message”是响应，则查找服务器事务并传递该消息。
+对“INVITE”请求的成功响应没有特殊处理。
+这是不必要的，因为在sip.js“INVITE”中，服务器事务不会在2xx响应上被销毁，
+而是会保留32秒（根据RFC 6026）。
+应用程序仍然需要重新发送成功的“INVITE”响应。
 
-If `message` is a response then server transaction is looked up and passed the message. There is no special handling of success
-responses to `'INVITE'` requests. It is not necessary because in sip.js `'INVITE'` server transactions are not destroyed on 2xx responses 
-but kept around for another 32 seconds (as per RFC 6026). Applications still need to resend success `'INVITE'` responses. 
-
-## Helper Functions
+## 辅助函数
 
 ### sip.makeResponse(request, status[, reason])
 
-returns SIP response object for `request` with `status` and `reason` fields set.
+根据`request`，`status`，`reason`字段的设置，返回一个SIP响应报文（response）对象
 
 ### sip.parseUri(uri)
 
@@ -149,22 +150,24 @@ URI对象生成字符串
 
 ### sip.parse(message)
 
-parses SIP message.
+解析一个SIP消息
 
 ### sip.stringify(message)
 
-stringfies SIP message.
+把一个调消息对象转为报文字符串。
 
 ### sip.copyMessage(message[, deep])
 
-copies SIP message. If parameter `deep` is false or omitted it copies only `method`, `uri`, `status`, `reason`, `headers`, `content` 
-fields of root object and `headers.via` array. If deep is true it performs full recursive copy of message object.
+复制SIP消息。
+如果参数deep为false或省略，则只复制根对象的method、uri、status、reason、headers、content字段 和 headers.via 数组。
+如果参数deep为true，则执行消息对象的完全递归复制。
 
-## Digest Authentication
+## 摘要认证（Digest Authentication）
 
-sip.js implements digest authentication as described in RFC 2617. Module can be accessed by calling `require('sip/digest');`
+sip.js实现了RFC 2617中描述的摘要身份验证。
+可以通过调用'require（'sip/digest'）访问模块`
 
-### Server-side API
+### 摘要认证服务器端API
 
 #### digest.challenge(session, response)
 
@@ -188,7 +191,7 @@ which is cached in `session` object. `credentials` is an object containing follo
 
 inserts 'Authentication-Info' header into response. Used for mutual client-server authentication.
 
-### Client-side API
+### 摘要认证客户端API
 
 ### digest.signRequest(session, request[, response, credentials])
 
@@ -232,11 +235,13 @@ calculates H(A1) value as described if RFC 2617. `arguments` is an object with f
 
 calculates hash of 'user:realm:password'
 
-## Proxy Module
+## 代理模块
 
-sip.js includes proxy module to simplify proxy server development. It can be accessed via `require('sip/proxy');`
-Usage example:
+sip.js包含了代理模块来简化代理服务器的开发。
+它可以通过`require（'sip/proxy'）；`访问
 
+用法示例：
+```
     var sip = require('sip');
     var proxy = require('sip/proxy');
     var db = require('userdb');
@@ -252,6 +257,7 @@ Usage example:
       else
         proxy.send(sip.makeResponse(rq, 404, 'Not Found')); 
     });
+```
 
 
 ### proxy.start(options, onRequest)

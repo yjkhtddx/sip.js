@@ -26,5 +26,7 @@ export declare function start(option:SIP_Start_Options,callback?:(request:any,re
 
 export declare function stringify(message:SIP_Message):string;
 export declare function parseUri(uri:string):object;
+export declare function makeResponse(rq:SIP_Message, status:number, reason:string, extension:object):SIP_Message;
+export declare function send(message:SIP_Message, callback?:(message:SIP_Message)=>void):number;
 
 

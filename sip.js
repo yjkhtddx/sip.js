@@ -800,10 +800,18 @@ function makeUdpTransport(options, callback) {
   }
 }
 
+/**
+ * 
+ * @param {object} options 创建传输对象参数
+ * @param {function} callback 传输对象callback
+ */
 function makeTransport(options, callback) {
   var protocols = {};
 
+  //设置传输对象回调
   var callbackAndLog = callback;
+  
+  //设置接收日志函数
   if(options.logger && options.logger.recv) {
     callbackAndLog = function(m, remote, stream) {
       options.logger.recv(m, remote);
@@ -1319,9 +1327,17 @@ function sequentialSearch(transaction, connect, addresses, rq, callback) {
   next();
 }
 
+/**
+ * 创建SIP服务器
+ * options 创建参数
+ * callback 请求回调
+ */
 exports.create = function(options, callback) {
+  
+  // 设置错误毁掉 options.logger
   var errorLog = (options.logger && options.logger.error) || function() {};
 
+  // 设置传输层对象
   var transport = makeTransport(options, function(m,remote) {
     try {
       var t = m.method ? transaction.getServer(m) : transaction.getClient(m);
@@ -1452,8 +1468,13 @@ exports.create = function(options, callback) {
     }
   } 
 }
-
-exports.start = function(options, callback) {
+/**
+ * 开启SIP服务器
+ * options 开启参数
+ * callback 当有请求过来
+ */
+exports.start = function(options, callback) 
+{
   var r = exports.create(options, callback);
 
   exports.send = r.send;

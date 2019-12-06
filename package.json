@@ -21,6 +21,7 @@
     "node": ">=0.2.2"
   },
   "dependencies": {
+    "@types/node": "^12.12.14",
     "ws": "^6.1.0"
   },
   "devDependencies": {

@@ -2,5 +2,7 @@ node_modules
 *.DS_Store
 
 # Derek Liu
+test.ts
 /dist
 *yarn.lock
+*package-lock.json

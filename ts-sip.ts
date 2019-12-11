@@ -1,7 +1,12 @@
 import * as dgram from 'dgram';
 // import {SocketType} from 'dgram'
 import * as net from 'net';
-import {SIP_Message,stringify} from './ts-parseMessage'
+import {SIP_Message} from './ts-parseMessage'
+
+export function stringify(message: SIP_Message): string {
+    //TODO
+    return "";
+}
 
 export interface SIP_Remote {
     protocol: string;

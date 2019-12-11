@@ -6,7 +6,7 @@ export interface SIP_Message_Headers_Value {
     s: string;
     i: number;
 }
- 
+
 export interface SIP_Message {
     method?: string;
     uri?: string;
@@ -53,7 +53,6 @@ function parseParams(data: SIP_Message_Headers_Value, hdr: any): any {
     hdr.params = hdr.params || {};
 
     let re: RegExp = /\s*;\s*([\w\-.!%*_+`'~]+)(?:\s*=\s*([\w\-.!%*_+`'~]+|"[^"\\]*(\\.[^"\\]*)*"))?/g;
-
     for (var r = applyRegex(re, data); r; r = applyRegex(re, data)) {
         hdr.params[r[1].toLowerCase()] = r[2] || null;
     }
@@ -95,16 +94,45 @@ export interface SIP_AOR {
  * @param data 
  */
 export function parseAOR(data: SIP_Message_Headers_Value): SIP_AOR | undefined {
-    console.log(">>>" + data.s + "<<<");
     var r: RegExpExecArray | undefined = applyRegex(/((?:[\w\-.!%*_+`'~]+)(?:\s+[\w\-.!%*_+`'~]+)*|"[^"\\]*(?:\\.[^"\\]*)*")?\s*\<\s*([^>]*)\s*\>|((?:[^\s@"<]@)?[^\s;]+)/g, data);
     if (r) {
         return parseParams(data, { name: r[1], uri: r[2] || r[3] || '' });
     }
 };
 
-function parseAorWithUri(data:SIP_Message_Headers_Value) {
-    var r:SIP_AOR|undefined = parseAOR(data);
-    if(r){
+export function parseUri(s: string): SIP_URI | undefined {
+    if (typeof s === 'object')
+        return s;
+
+    var re = /^(sips?):(?:([^\s>:@]+)(?::([^\s@>]+))?@)?([\w\-\.]+)(?::(\d+))?((?:;[^\s=\?>;]+(?:=[^\s?\;]+)?)*)(?:\?(([^\s&=>]+=[^\s&=>]+)(&[^\s&=>]+=[^\s&=>]+)*))?$/;
+
+    var r: RegExpExecArray | null = re.exec(s);
+
+    console.log(r);
+
+    if (r) {
+        let ret: any = {
+            schema: r[1],// (sips?) ==> sip/sips
+            user: r[2],// (?:([^\s>:@]+) ==> 41010200001320000001
+            password: r[3],
+            host: r[4],
+            port: +r[5],
+            params: (r[6].match(/([^;=]+)(=([^;=]+))?/g) || [])
+                .map(function (s) { return s.split('='); })
+                .reduce(function (params: any, x: any) { params[x[0]] = x[1] || null; return params; }, {}),
+            headers: ((r[7] || '').match(/[^&=]+=[^&=]+/g) || [])
+                .map(function (s) { return s.split('=') })
+                .reduce(function (params: any, x: any) { params[x[0]] = x[1]; return params; }, {})
+        }
+
+
+        return ret;
+    }
+}
+
+function parseAorWithUri(data: SIP_Message_Headers_Value) {
+    var r: SIP_AOR | undefined = parseAOR(data);
+    if (r) {
         r.uri = parseUri(r.uri);
     }
     return r;
@@ -116,9 +144,9 @@ export interface SIP_Via {
     [key: string]: any;
 };
 
-function parseVia(data:SIP_Message_Headers_Value):SIP_Via|undefined {
-    var r:RegExpExecArray | undefined = applyRegex(/SIP\s*\/\s*(\d+\.\d+)\s*\/\s*([\S]+)\s+([^\s;:]+)(?:\s*:\s*(\d+))?/g, data);
-    if(r){
+function parseVia(data: SIP_Message_Headers_Value): SIP_Via | undefined {
+    var r: RegExpExecArray | undefined = applyRegex(/SIP\s*\/\s*(\d+\.\d+)\s*\/\s*([\S]+)\s+([^\s;:]+)(?:\s*:\s*(\d+))?/g, data);
+    if (r) {
         return parseParams(data, { version: r[1], protocol: r[2], host: r[3], port: r[4] && +r[4] });
     }
 }
@@ -136,12 +164,12 @@ function parseCSeq(d: SIP_Message_Headers_Value): SIP_CSeq | undefined {
     }
 }
 
-function parseAuthHeader(d:SIP_Message_Headers_Value):any {
-    var r1:RegExpExecArray | undefined = applyRegex(/([^\s]*)\s+/g, d);
-    if(r1){
-        var a:any = { scheme: r1[1] };
-        var r2:RegExpExecArray | undefined = applyRegex(/([^\s,"=]*)\s*=\s*([^\s,"]+|"[^"\\]*(?:\\.[^"\\]*)*")\s*/g, d);
-        if(r2){
+function parseAuthHeader(d: SIP_Message_Headers_Value): any {
+    var r1: RegExpExecArray | undefined = applyRegex(/([^\s]*)\s+/g, d);
+    if (r1) {
+        var a: any = { scheme: r1[1] };
+        var r2: RegExpExecArray | undefined = applyRegex(/([^\s,"=]*)\s*=\s*([^\s,"]+|"[^"\\]*(?:\\.[^"\\]*)*")\s*/g, d);
+        if (r2) {
             a[r2[1]] = r2[2];
             while (r2 = applyRegex(/,\s*([^\s,"=]*)\s*=\s*([^\s,"]+|"[^"\\]*(?:\\.[^"\\]*)*")\s*/g, d)) {
                 a[r2[1]] = r2[2];
@@ -151,10 +179,10 @@ function parseAuthHeader(d:SIP_Message_Headers_Value):any {
     }
 }
 
-function parseAuthenticationInfoHeader(d:SIP_Message_Headers_Value):any {
-    let a:any = {};
-    let r:RegExpExecArray | undefined = applyRegex(/([^\s,"=]*)\s*=\s*([^\s,"]+|"[^"\\]*(?:\\.[^"\\]*)*")\s*/g, d);
-    if(r){
+function parseAuthenticationInfoHeader(d: SIP_Message_Headers_Value): any {
+    let a: any = {};
+    let r: RegExpExecArray | undefined = applyRegex(/([^\s,"=]*)\s*=\s*([^\s,"]+|"[^"\\]*(?:\\.[^"\\]*)*")\s*/g, d);
+    if (r) {
         a[r[1]] = r[2];
         while (r = applyRegex(/,\s*([^\s,"=]*)\s*=\s*([^\s,"]+|"[^"\\]*(?:\\.[^"\\]*)*")\s*/g, d)) {
             a[r[1]] = r[2];
@@ -195,11 +223,6 @@ export interface SIP_Parse_UIR {
     user?: string;
 }
 
-export function stringify(message: SIP_Message): string {
-    //TODO
-    return "";
-}
-
 function parse(data: string): SIP_Message | undefined {
     let regHeadersLine: RegExp = /\r\n(?![ \t])/;
     let data_array = data.split(regHeadersLine);//分行
@@ -223,15 +246,17 @@ function parse(data: string): SIP_Message | undefined {
         let name = unescape(r[1]).toLowerCase();
         name = compactForm[name] || name;
 
-        let data = { s: r[2], i: 0 };
-
+        console.log(`### parse header[${name}] ###`);
+        console.log(`${data_array[i]}`);
+        console.log(`#############################`);
+        let data:SIP_Message_Headers_Value = { s: r[2], i: 0 };
         try {
             switch (name) {
                 case 'to':
-                    parseAOR({ s: r[2], i: 0 });
+                    m.headers[name] = parseAOR({ s: r[2], i: 0 });
                     break;
                 case 'from':
-                    parseAOR({ s: r[2], i: 0 });
+                    m.headers[name] = parseAOR({ s: r[2], i: 0 });
                     break;
                 case 'contact':
                     {
@@ -242,16 +267,13 @@ function parse(data: string): SIP_Message | undefined {
                     }
                     break;
                 case 'route':
-                        m.headers[name] =  parseMultiHeader(parseVia,data,m.headers[name]);
-                    // 'route': parseMultiHeader.bind(0, parseAorWithUri)
+                    m.headers[name] = parseMultiHeader(parseAorWithUri, data, m.headers[name]);
                     break;
                 case 'record-route':
-                        m.headers[name] =  parseMultiHeader(parseVia,data,m.headers[name]);
-                    // 'record-route': parseMultiHeader.bind(0, parseAorWithUri)
+                    m.headers[name] = parseMultiHeader(parseAorWithUri, data, m.headers[name]);
                     break;
                 case 'path':
-                        m.headers[name] =  parseMultiHeader(parseVia,data,m.headers[name]);
-                    // 'path': parseMultiHeader.bind(0, parseAorWithUri)
+                    m.headers[name] = parseMultiHeader(parseAorWithUri, data, m.headers[name]);
                     break;
                 case 'cseq':
                     m.headers[name] = parseCSeq(data)
@@ -260,22 +282,22 @@ function parse(data: string): SIP_Message | undefined {
                     m.headers[name] = (+data.s)
                     break;
                 case 'via':
-                    m.headers[name] =  parseMultiHeader(parseVia,data,m.headers[name]);
+                    m.headers[name] = parseMultiHeader(parseVia, data, m.headers[name]);
                     break;
                 case 'www-authenticate':
-                        m.headers[name] =  parseMultiHeader(parseAuthHeader,data,m.headers[name]);
+                    m.headers[name] = parseMultiHeader(parseAuthHeader, data, m.headers[name]);
                     break;
                 case 'proxy-authenticate':
-                        m.headers[name] =  parseMultiHeader(parseAuthHeader,data,m.headers[name]);
+                    m.headers[name] = parseMultiHeader(parseAuthHeader, data, m.headers[name]);
                     break;
                 case 'authorization':
-                        m.headers[name] =  parseMultiHeader(parseAuthHeader,data,m.headers[name]);
+                    m.headers[name] = parseMultiHeader(parseAuthHeader, data, m.headers[name]);
                     break;
                 case 'proxy-authorization':
-                        m.headers[name] =  parseMultiHeader(parseAuthHeader,data,m.headers[name]);
-                    break;        
+                    m.headers[name] = parseMultiHeader(parseAuthHeader, data, m.headers[name]);
+                    break;
                 case 'authentication-info':
-                        m.headers[name] =  parseMultiHeader(parseAuthenticationInfoHeader,data,m.headers[name]);
+                    m.headers[name] = parseMultiHeader(parseAuthenticationInfoHeader, data, m.headers[name]);
                     break;
                 case 'refer-to':
                     m.headers[name] = parseAOR(data);
@@ -288,6 +310,11 @@ function parse(data: string): SIP_Message | undefined {
         } catch (error) {
             console.log(error);
         }
+        
+        console.log(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>`);
+        console.log(JSON.stringify(m.headers[name],undefined,"  "));
+        console.log(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<`);
+        if(name === 'route') debugger;
     }
 
     return m;
@@ -302,32 +329,6 @@ export interface SIP_URI {
     params?: any;
     headers?: any;
 }
-
-export function parseUri(s:string):SIP_URI | undefined {
-    if(typeof s === 'object')
-      return s;
-
-    var re = /^(sips?):(?:([^\s>:@]+)(?::([^\s@>]+))?@)?([\w\-\.]+)(?::(\d+))?((?:;[^\s=\?>;]+(?:=[^\s?\;]+)?)*)(?:\?(([^\s&=>]+=[^\s&=>]+)(&[^\s&=>]+=[^\s&=>]+)*))?$/;
-
-    var r:RegExpExecArray | null = re.exec(s);
-
-    if(r) {
-      return {
-        schema: r[1],
-        user: r[2],
-        password: r[3],
-        host: r[4],
-        port: +r[5]
-        //,
-        // params: (r[6].match(/([^;=]+)(=([^;=]+))?/g) || [])
-        //   .map(function(s) { return s.split('='); })
-        //   .reduce(function(params, x) { params[x[0]]=x[1] || null; return params;}, {}),
-        // headers: ((r[7] || '').match(/[^&=]+=[^&=]+/g) || [])
-        //   .map(function(s){ return s.split('=') })
-        //   .reduce(function(params, x) { params[x[0]]=x[1]; return params; }, {})
-      }
-    }
-  }
 
 export function parseMessage(s: Buffer): SIP_Message | undefined {
     var r: RegExpMatchArray | null = s.toString('binary').match(/^\s*([\S\s]*?)\r\n\r\n([\S\s]*)$/);

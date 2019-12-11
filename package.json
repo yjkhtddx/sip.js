@@ -6,7 +6,8 @@
   "author": "Kirill Mikhailov <kirill.mikhailov@gmail.com>",
   "main": "sip",
   "scripts": {
-    "test": "./node_modules/.bin/coffee test/runtests.coffee"
+    "test": "./node_modules/.bin/coffee test/runtests.coffee",
+    "ts-test": "ts-node --nolazy -r tsconfig-paths/register ts-test/test.ts"
   },
   "directories": {
     "lib": "",
@@ -26,6 +27,8 @@
     "ws": "^6.1.0"
   },
   "devDependencies": {
-    "coffee-script": "~1.6.2"
+    "coffee-script": "~1.6.2",
+    "ts-node": "^8.5.4",
+    "tsconfig-paths": "^3.9.0"
   }
 }

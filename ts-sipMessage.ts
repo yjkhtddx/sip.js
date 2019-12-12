@@ -1,4 +1,4 @@
-import { SIP_Message } from "ts-Common";
+import { SIP_Message, SIP_URI } from "ts-Common";
 
 interface SIP_Message_Headers_Value {
     s: string;
@@ -235,7 +235,7 @@ function parse(data: string): SIP_Message | undefined {
         // console.log(`### parse header[${name}] ###`);
         // console.log(`${data_array[i]}`);
         // console.log(`#############################`);
-        let data:SIP_Message_Headers_Value = { s: r[2], i: 0 };
+        let data: SIP_Message_Headers_Value = { s: r[2], i: 0 };
         try {
             switch (name) {
                 case 'to':
@@ -296,23 +296,13 @@ function parse(data: string): SIP_Message | undefined {
         } catch (error) {
             console.log(error);
         }
-        
+
         // console.log(`>>>>>>>>>>>>>>>>>>>>>>>>>>>>>`);
         // console.log(JSON.stringify(m.headers[name],undefined,"  "));
         // console.log(`<<<<<<<<<<<<<<<<<<<<<<<<<<<<<`);
     }
 
     return m;
-}
-
-export interface SIP_URI {
-    schema?: string;
-    user?: string;
-    password?: string;
-    host?: string;
-    port?: number;
-    params?: any;
-    headers?: any;
 }
 
 export function parseMessage(s: Buffer): SIP_Message | undefined {
@@ -334,23 +324,23 @@ export function parseMessage(s: Buffer): SIP_Message | undefined {
     }
 }
 
-function stringifyVersion(v: string | undefined):string {
+function stringifyVersion(v: string | undefined): string {
     return v || '2.0';
 }
 
-interface SIP_Params{
-    [key:string]:string|null;
+interface SIP_Params {
+    [key: string]: string | null;
 }
 
-function stringifyParams(params:SIP_Params) {
+function stringifyParams(params: SIP_Params) {
     var s = '';
-    for(var n in params) {
-        s += ';'+n+(params[n]?'='+params[n]:'');
+    for (var n in params) {
+        s += ';' + n + (params[n] ? '=' + params[n] : '');
     }
     return s;
-  }
+}
 
-function stringifyUri(uri: string | SIP_URI):string {
+function stringifyUri(uri: string | SIP_URI): string {
     if (typeof uri === 'string') {
         return uri;
     } else {
@@ -379,46 +369,162 @@ function stringifyUri(uri: string | SIP_URI):string {
         return s;
     }
 }
-  
 
-export function stringify(m:SIP_Message) {
-    var s;
-    if(m.status) {
-      s = 'SIP/' + stringifyVersion(m.version) + ' ' + m.status + ' ' + m.reason + '\r\n';
+function prettifyHeaderName(s: string): string {
+    if (s == 'call-id') return 'Call-ID';
+
+    return s.replace(/\b([a-z])/g, function (a: string) { return a.toUpperCase(); });
+}
+
+function stringifyAOR(aor: any): string {
+    return (aor.name || '') + '<' + stringifyUri(aor.uri) + '>' + stringifyParams(aor.params);
+}
+
+function stringifyAuthHeader(a: any) {
+    let s = [];
+
+    for (let n in a) {
+        if (n !== 'scheme' && a[n] !== undefined) {
+            s.push(n + '=' + a[n]);
+        }
     }
-    else {
-      s = m.method + ' ' + stringifyUri(m.uri) + ' SIP/' + stringifyVersion(m.version) + '\r\n';
+
+    return a.scheme ? a.scheme + ' ' + s.join(', ') : s.join(', ');
+}
+
+
+export function stringify(m: SIP_Message) {
+    let s = "";
+    if (m.status) {
+        s = 'SIP/' + stringifyVersion(m.version) + ' ' + m.status + ' ' + m.reason + '\r\n';
     }
-  
+    else
+        if (m.uri) {
+            s = m.method + ' ' + stringifyUri(m.uri) + ' SIP/' + stringifyVersion(m.version) + '\r\n';
+        } else {
+            throw new Error("Message Error");
+        }
+
     m.headers['content-length'] = (m.content || '').length;
-  
-    for(var n in m.headers) {
-      if(typeof m.headers[n] !== "undefined") {
-        if(typeof m.headers[n] === 'string' || !stringifiers[n]) 
-          s += prettifyHeaderName(n) + ': ' + m.headers[n] + '\r\n';
-        else
-          s += stringifiers[n](m.headers[n], n);
-      }
-    }
-    
-    s += '\r\n';
-  
-    if(m.content)
-      s += m.content;
-  
-    return s;
-  }
 
-export function checkMessage(msg:SIP_Message):boolean {
+    for (var n in m.headers) {
+        if (typeof m.headers[n] !== "undefined") {
+            if (typeof m.headers[n] === 'string') {
+                s += prettifyHeaderName(n) + ': ' + m.headers[n] + '\r\n';
+            } else {
+                switch (n) {
+                    case 'via':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += m.headers[n].map(function (via: any) {
+                                    return 'Via: SIP/' + stringifyVersion(via.version) + '/' + via.protocol.toUpperCase() + ' ' + via.host + (via.port ? ':' + via.port : '') + stringifyParams(via.params) + '\r\n';
+                                }).join('');
+                            }
+                        }
+                        break;
+                    case 'to':
+                        s += 'To: ' + stringifyAOR(m.headers[n]) + '\r\n';
+                        break;
+                    case 'from':
+                        s += 'From: ' + stringifyAOR(m.headers[n]) + '\r\n';
+                        break;
+                    case 'contact':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += 'Contact: ' + m.headers[n].map(stringifyAOR).join(', ') + '\r\n';
+                            } else {
+                                s += 'Contact: *\r\n';
+                            }
+                        }
+                        break;
+                    case 'route':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += 'Route: ' + m.headers[n].map(stringifyAOR).join(', ') + '\r\n';
+                            }
+                        }
+                        break;
+                    case 'record-route':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += 'Record-Route: ' + m.headers[n].map(stringifyAOR).join(', ') + '\r\n';
+                            }
+                        }
+                        break;
+                    case 'path':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += 'Path: ' + m.headers[n].map(stringifyAOR).join(', ') + '\r\n';
+                            }
+                        }
+                        break;
+                    case 'cseq':
+                        s += 'CSeq: ' + m.headers[n].seq + ' ' + m.headers[n].method + '\r\n';
+                        break;
+                    case 'www-authenticate':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += m.headers[n].map(function (x: any) { return 'WWW-Authenticate: ' + stringifyAuthHeader(x) + '\r\n'; }).join('');
+                            }
+                        }
+                        break;
+                    case 'proxy-authenticate':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += m.headers[n].map(function (x: any) { return 'Proxy-Authenticate: ' + stringifyAuthHeader(x) + '\r\n'; }).join('');
+                            }
+                        }
+                        break;
+                    case 'authorization':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += m.headers[n].map(function (x: any) { return 'Authorization: ' + stringifyAuthHeader(x) + '\r\n'; }).join('');
+                            }
+                        }
+                        break;
+                    case 'proxy-authorization':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += m.headers[n].map(function (x: any) { return 'Proxy-Authorization: ' + stringifyAuthHeader(x) + '\r\n'; }).join('');
+                            }
+                        }
+                        break;
+                    case 'authentication-info':
+                        if (Array.isArray(m.headers[n])) {
+                            if (m.headers[n].length > 0) {
+                                s += m.headers[n].map(function (x: any) { return 'Authentication-Info: ' + stringifyAuthHeader(x) + '\r\n'; }).join('');
+                            }
+                        }
+                        break;
+                    case 'refer-to':
+                        s += 'Refer-To: ' + stringifyAOR(m.headers[n]) + '\r\n';
+                        break;
+                    default:
+                        s += prettifyHeaderName(n) + ': ' + m.headers[n] + '\r\n';
+                        break;
+                }
+            }
+        }
+    }
+
+    s += '\r\n';
+
+    if (m.content)
+        s += m.content;
+
+    return s;
+}
+
+export function checkMessage(msg: SIP_Message): boolean {
     return (msg.method || (msg.status && (msg.status >= 100 && msg.status <= 999))) &&
-      msg.headers &&
-      Array.isArray(msg.headers.via) &&
-      msg.headers.via.length > 0 &&
-      msg.headers['call-id'] &&
-      msg.headers.to &&
-      msg.headers.from &&
-      msg.headers.cseq;
-  }
+        msg.headers &&
+        Array.isArray(msg.headers.via) &&
+        msg.headers.via.length > 0 &&
+        msg.headers['call-id'] &&
+        msg.headers.to &&
+        msg.headers.from &&
+        msg.headers.cseq;
+}
 
 /**
  * 笔记：

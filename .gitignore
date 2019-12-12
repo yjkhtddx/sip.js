@@ -4,6 +4,7 @@ node_modules
 # Derek Liu
 test.ts
 /dist
+/temp
 *yarn.lock
 *package-lock.json
 .vscode

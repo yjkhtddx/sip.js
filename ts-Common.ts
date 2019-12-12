@@ -27,12 +27,22 @@ export interface SIP_Callback {
     (message: SIP_Message, remote: SIP_Remote, stream?: Buffer): void;
 }
 
+export interface SIP_URI {
+    schema?: string;
+    user?: string;
+    password?: string;
+    host?: string;
+    port?: number;
+    params?: any;
+    headers?: any;
+}
+
 export interface SIP_Message {
-    method?: string;
-    uri?: string;
-    version?: string;
-    status?: number;
-    reason?: string;
+    method?: string;//req
+    uri?: string|SIP_URI;//req
+    version?: string;//req/res
+    status?: number;//res
+    reason?: string;//res
     headers: SIP_Message_Headers;
     content?: string;
     [key: string]: any;
